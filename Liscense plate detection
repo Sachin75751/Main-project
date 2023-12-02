@@ -1,34 +1,63 @@
 import cv2
 import numpy as np
 
-# Load the image
-image = cv2.imread(r'C:\Users\91940\Pictures\audi.jfif')
+# List of image paths
+image_paths = [
+    r"C:\Users\91940\Pictures\audi.jfif",
+    r"C:\Users\91940\Pictures\tata_estate.jpg",
+    r"C:\Users\91940\Pictures\car5.jpg",
+    r"C:\Users\91940\Pictures\koenigsegg.jpg",
+    r"C:\Users\91940\Pictures\ferrari.jpg",
+    r"C:\Users\91940\Pictures\porshe911.jpg",
+    r"C:\Users\91940\Pictures\urus.jpg"
+]
 
-# Convert the image to grayscale
-gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+# Function to process the image
+def process_image(image):
+    # Convert the image to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-# Apply Gaussian blur to reduce noise
-gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    # Apply Gaussian blur to reduce noise
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
-# Perform edge detection
-edges = cv2.Canny(gray, 50, 150)
+    # Perform edge detection
+    edges = cv2.Canny(gray, 50, 150)
 
-# Find contours in the edge image
-contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Find contours in the edge image
+    contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-# Filter contours based on area and aspect ratio (adjust these parameters)
-min_area = 500
-min_aspect_ratio = 2
+    # Filter contours based on area and aspect ratio (adjust these parameters)
+    min_area = 500
+    max_area = 5000  # Adjust the maximum area based on your requirements
+    min_aspect_ratio = 2
 
-for contour in contours:
-    if cv2.contourArea(contour) > min_area:
-        x, y, w, h = cv2.boundingRect(contour)
-        aspect_ratio = w / h
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if min_area < area < max_area:
+            x, y, w, h = cv2.boundingRect(contour)
+            aspect_ratio = w / h
 
-        if aspect_ratio > min_aspect_ratio:
-            cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            if aspect_ratio > min_aspect_ratio:
+                cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
-# Display the image with detected license plates
-cv2.imshow('License Plate Detection', image)
-cv2.waitKey(0)
+    return image
+
+# Process each image in the list
+for image_path in image_paths:
+    # Read the image
+    img = cv2.imread(image_path)
+
+    # Check if the image is successfully loaded
+    if img is None:
+        print(f"Error loading image: {image_path}")
+        continue
+
+    # Process the image
+    processed_image = process_image(img)
+
+    # Display the image with detected cars
+    cv2.imshow('Car Detection', processed_image)
+    cv2.waitKey(0)
+
+# Close all windows
 cv2.destroyAllWindows()
