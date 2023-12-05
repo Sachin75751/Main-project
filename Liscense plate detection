@@ -1,63 +1,77 @@
 import cv2
-import numpy as np
+import tkinter as tk
+from tkinter import Label, PhotoImage, Button, filedialog, Entry
+from PIL import Image, ImageTk
+import pytesseract
 
-# List of image paths
-image_paths = [
-    r"C:\Users\91940\Pictures\audi.jfif",
-    r"C:\Users\91940\Pictures\tata_estate.jpg",
-    r"C:\Users\91940\Pictures\car5.jpg",
-    r"C:\Users\91940\Pictures\koenigsegg.jpg",
-    r"C:\Users\91940\Pictures\ferrari.jpg",
-    r"C:\Users\91940\Pictures\porshe911.jpg",
-    r"C:\Users\91940\Pictures\urus.jpg"
-]
+# Path to Tesseract OCR executable (change this path based on your installation)
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Function to process the image
-def process_image(image):
-    # Convert the image to grayscale
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-    # Apply Gaussian blur to reduce noise
-    gray = cv2.GaussianBlur(gray, (5, 5), 0)
-
-    # Perform edge detection
-    edges = cv2.Canny(gray, 50, 150)
-
-    # Find contours in the edge image
-    contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # Filter contours based on area and aspect ratio (adjust these parameters)
-    min_area = 500
-    max_area = 5000  # Adjust the maximum area based on your requirements
-    min_aspect_ratio = 2
-
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if min_area < area < max_area:
-            x, y, w, h = cv2.boundingRect(contour)
-            aspect_ratio = w / h
-
-            if aspect_ratio > min_aspect_ratio:
-                cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-    return image
-
-# Process each image in the list
-for image_path in image_paths:
+def process_image(image_path):
     # Read the image
     img = cv2.imread(image_path)
 
-    # Check if the image is successfully loaded
-    if img is None:
-        print(f"Error loading image: {image_path}")
-        continue
+    # Convert the image to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # Process the image
-    processed_image = process_image(img)
+    # Use Haar Cascade for license plate detection
+    plate_cascade = cv2.CascadeClassifier(r"C:\Users\91940\Downloads\indian_license_plate.xml")
+    plates = plate_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
 
-    # Display the image with detected cars
-    cv2.imshow('Car Detection', processed_image)
-    cv2.waitKey(0)
+    extracted_text = ""
 
-# Close all windows
-cv2.destroyAllWindows()
+    for (x, y, w, h) in plates:
+        cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+        # Extract the region of interest (ROI) around the detected number plate
+        roi_plate = img[y:y + h, x:x + w]
+
+        # Convert the ROI to grayscale
+        roi_gray = cv2.cvtColor(roi_plate, cv2.COLOR_BGR2GRAY)
+
+        # Extract text using OCR from the region of interest (ROI)
+        text = pytesseract.image_to_string(roi_gray, config='--psm 8 --oem 3 -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')  # Adjust the OCR configuration if needed
+        extracted_text += text + "\n"
+
+    return img, extracted_text.strip()
+
+# Function to update the Tkinter GUI
+def update_gui(image_path):
+    processed_image, extracted_text = process_image(image_path)
+
+    # Display the processed image in the Tkinter window
+    image = cv2.cvtColor(processed_image, cv2.COLOR_BGR2RGB)
+    image = Image.fromarray(image)
+    photo = ImageTk.PhotoImage(image=image)
+    img_label.config(image=photo)
+    img_label.image = photo
+
+    # Display the extracted text in the entry widget
+    text_entry.delete(0, tk.END)
+    text_entry.insert(0, extracted_text)
+
+# Function to handle image selection using file dialog
+def select_image():
+    file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg;*.jpeg")])
+    if file_path:
+        update_gui(file_path)
+
+# Tkinter setup
+root = tk.Tk()
+root.title("Car Detection with License Plate and OCR")
+
+# Image display label
+img_label = Label(root)
+img_label.pack()
+
+# Detected text entry
+text_entry = Entry(root, width=50)
+text_entry.pack()
+
+# Upload image button
+upload_button = Button(root, text="Upload Image", command=select_image)
+upload_button.pack()
+
+# Process each image in the list
+root.mainloop()
